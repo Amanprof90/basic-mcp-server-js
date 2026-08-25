@@ -10,7 +10,7 @@ const client = new Client({
 });
 
 const transport = new StreamableHTTPClientTransport(
-  new URL("http://localhost:4000/mcp")
+  new URL("https://basic-mcp-server-js.onrender.com/mcp")
 );
 
 async function main() {
