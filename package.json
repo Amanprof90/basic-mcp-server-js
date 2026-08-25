@@ -1,0 +1,21 @@
+{
+  "name": "basic-mcp",
+  "version": "1.0.0",
+  "description": "Beginner MCP server using JavaScript",
+  "main": "remote-server.js",
+  "scripts": {
+    "start": "node remote-server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^4.4.3"
+  }
+}
