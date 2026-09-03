@@ -1,0 +1,37 @@
+{
+  "manifest_version": "0.2",
+  "name": "basic-mcp",
+  "display_name": "Basic MCP Server",
+  "version": "1.0.0",
+  "description": "My custom MCP server for Claude Desktop",
+  "author": {
+    "name": "Aman"
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "server.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/server.js"
+      ],
+      "env": {}
+    }
+  },
+  "tools": [
+    {
+      "name": "get_time",
+      "description": "Show the current IST time with date and day."
+    },
+    {
+      "name": "calculator",
+      "description": "Perform addition, subtraction, multiplication, and division."
+    },
+    {
+      "name": "text_stats",
+      "description": "Analyze text and return statistics."
+    }
+  ],
+  "tools_generated": true,
+  "license": "MIT"
+}

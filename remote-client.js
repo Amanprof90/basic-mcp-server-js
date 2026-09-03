@@ -1,83 +1,217 @@
 const { Client } = require("@modelcontextprotocol/sdk/client/index.js");
 
 const {
-  StreamableHTTPClientTransport,
+    StreamableHTTPClientTransport,
 } = require("@modelcontextprotocol/sdk/client/streamableHttp.js");
 
-const client = new Client({
-  name: "basic-remote-mcp-client",
-  version: "1.0.0",
-});
-
-const transport = new StreamableHTTPClientTransport(
-  new URL("https://basic-mcp-server-js.onrender.com/mcp")
-);
 
 async function main() {
-  // ==========================================================
-  // CONNECT
-  // ==========================================================
 
-  await client.connect(transport);
+    // =========================================================
+    // 1. CREATE MCP CLIENT
+    // =========================================================
 
-  console.log("Connected to remote MCP server.");
+    const client = new Client(
+        {
+            name: "basic-remote-mcp-client",
+            version: "1.0.0",
+        },
+        {
+            capabilities: {},
+        }
+    );
 
-  // ==========================================================
-  // DISCOVER TOOLS
-  // ==========================================================
 
-  const tools = await client.listTools();
+    // =========================================================
+    // 2. CONNECT TO REMOTE MCP SERVER
+    // =========================================================
 
-  console.log("\nAvailable tools:");
+    const transport = new StreamableHTTPClientTransport(
+    new URL("https://basic-mcp-server-js.onrender.com/mcp")
+    );
 
-  console.dir(tools, { depth: null });
+    // const transport = new StreamableHTTPClientTransport(
+    //     new URL("http://localhost:3000/mcp")
+    // );
 
-  // ==========================================================
-  // TOOL 1: GET TIME
-  // ==========================================================
+    await client.connect(transport);
 
-  const timeResult = await client.callTool({
-    name: "get_time",
-    arguments: {},
-  });
+    console.log("Connected to remote MCP server.");
 
-  console.log("\nTime result:");
 
-  console.dir(timeResult, { depth: null });
+    // =========================================================
+    // 3. LIST TOOLS
+    // =========================================================
 
-  // ==========================================================
-  // TOOL 2: CALCULATOR
-  // ==========================================================
+    console.log("\n================ TOOLS ================\n");
 
-  const calculation = await client.callTool({
-    name: "calculator",
-    arguments: {
-      a: 20,
-      b: 5,
-      operation: "multiply",
-    },
-  });
+    const tools = await client.listTools();
 
-  console.log("\nCalculator result:");
+    console.dir(tools, {
+        depth: null,
+    });
 
-  console.dir(calculation, { depth: null });
 
-  // ==========================================================
-  // TOOL 3: TEXT STATS
-  // ==========================================================
+    // =========================================================
+    // 4. CALL get_time
+    // =========================================================
 
-  const textResult = await client.callTool({
-    name: "text_stats",
-    arguments: {
-      text: "MCP connects AI applications with external tools.",
-    },
-  });
+    console.log("\n================ GET TIME ================\n");
 
-  console.log("\nText statistics result:");
+    const timeResult = await client.callTool({
+        name: "get_time",
+        arguments: {},
+    });
 
-  console.dir(textResult, { depth: null });
+    console.dir(timeResult, {
+        depth: null,
+    });
+
+
+    // =========================================================
+    // 5. CALL calculator
+    // =========================================================
+
+    console.log("\n================ CALCULATOR ================\n");
+
+    const calculatorResult = await client.callTool({
+        name: "calculator",
+        arguments: {
+            a: 10,
+            b: 10,
+            operation: "multiply",
+        },
+    });
+
+    console.dir(calculatorResult, {
+        depth: null,
+    });
+
+
+    // =========================================================
+    // 6. CALL text_stats
+    // =========================================================
+
+    console.log("\n================ TEXT STATS ================\n");
+
+    const textStatsResult = await client.callTool({
+        name: "text_stats",
+        arguments: {
+            text: "MCP allows AI systems to interact with external tools.",
+        },
+    });
+
+    console.dir(textStatsResult, {
+        depth: null,
+    });
+
+
+    // =========================================================
+    // 7. LIST RESOURCES
+    // =========================================================
+
+    console.log("\n================ RESOURCES ================\n");
+
+    const resources = await client.listResources();
+
+    console.dir(resources, {
+        depth: null,
+    });
+
+
+    // =========================================================
+    // 8. READ STATIC RESOURCE
+    // =========================================================
+
+    console.log("\n================ COMPANY RESOURCE ================\n");
+
+    const companyResource = await client.readResource({
+        uri: "company://about",
+    });
+
+    console.dir(companyResource, {
+        depth: null,
+    });
+
+
+    // =========================================================
+    // 9. LIST RESOURCE TEMPLATES
+    // =========================================================
+
+    console.log(
+        "\n================ RESOURCE TEMPLATES ================\n"
+    );
+
+    const resourceTemplates = await client.listResourceTemplates();
+
+    console.dir(resourceTemplates, {
+        depth: null,
+    });
+
+
+    // =========================================================
+    // 10. READ DYNAMIC RESOURCE
+    // =========================================================
+
+    console.log(
+        "\n================ DYNAMIC RESOURCE ================\n"
+    );
+
+    const productResource = await client.readResource({
+        uri: "company://products/erp",
+    });
+
+    console.dir(productResource, {
+        depth: null,
+    });
+
+
+    // =========================================================
+    // 11. LIST PROMPTS
+    // =========================================================
+
+    console.log("\n================ PROMPTS ================\n");
+
+    const prompts = await client.listPrompts();
+
+    console.dir(prompts, {
+        depth: null,
+    });
+
+
+    // =========================================================
+    // 12. GET review_pr PROMPT
+    // =========================================================
+
+    console.log("\n================ REVIEW PR PROMPT ================\n");
+
+    const reviewPrompt = await client.getPrompt({
+        name: "review_pr",
+        arguments: {
+            owner: "Amanprof90",
+            repo: "basic-mcp",
+            pullNumber: "1",
+        },
+    });
+
+    console.dir(reviewPrompt, {
+        depth: null,
+    });
+
+
+    // =========================================================
+    // 13. CLOSE CONNECTION
+    // =========================================================
+
+    await transport.close();
+
+    console.log("\nRemote MCP test completed successfully.");
 }
 
+
 main().catch((error) => {
-  console.error("Client error:", error);
+
+    console.error("\nClient error:", error);
+
+    process.exit(1);
 });
