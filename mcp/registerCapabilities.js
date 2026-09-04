@@ -188,6 +188,100 @@ function registerCapabilities(server) {
     }
   );
 
+    // write_workflow_file
+  server.registerTool(
+    "write_workflow_file",
+    {
+      title: "Write Workflow File",
+      description:
+        "Writes a file only inside the MCP workflow sandbox directory.",
+      inputSchema: {
+        fileName: z
+          .string()
+          .min(1)
+          .describe("File path relative to the workflow sandbox."),
+        content: z
+          .string()
+          .describe("Content to write into the file."),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+
+    async ({ fileName, content }) => {
+      try {
+        const workflowDir = path.resolve(
+          __dirname,
+          "data",
+          "workflow"
+        );
+
+        const requestedPath = path.resolve(
+          workflowDir,
+          fileName
+        );
+
+        // Make sure the resolved path stays inside the sandbox.
+        const relativePath = path.relative(
+          workflowDir,
+          requestedPath
+        );
+
+        if (
+          relativePath.startsWith("..") ||
+          path.isAbsolute(relativePath)
+        ) {
+          return {
+            isError: true,
+            content: [
+              {
+                type: "text",
+                text: "Write denied: path is outside the workflow sandbox.",
+              },
+            ],
+          };
+        }
+
+        fs.mkdirSync(workflowDir, { recursive: true });
+
+        fs.writeFileSync(
+          requestedPath,
+          content,
+          "utf8"
+        );
+
+        return {
+          content: [
+            {
+              type: "text",
+              text:
+                `Write completed successfully.\n` +
+                `Sandbox: ${workflowDir}\n` +
+                `File: ${requestedPath}\n` +
+                `Exists: ${fs.existsSync(requestedPath)}`,
+            },
+          ],
+        };
+      } catch (error) {
+        console.error("Workflow file write error:", error);
+
+        return {
+          isError: true,
+          content: [
+            {
+              type: "text",
+              text: "Unable to write workflow file.",
+            },
+          ],
+        };
+      }
+    }
+  );
+
   // get_repository
   server.registerTool(
     "get_repository",

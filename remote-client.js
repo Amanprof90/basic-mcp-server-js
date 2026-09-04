@@ -26,13 +26,13 @@ async function main() {
     // 2. CONNECT TO REMOTE MCP SERVER
     // =========================================================
 
-    const transport = new StreamableHTTPClientTransport(
-    new URL("https://basic-mcp-server-js.onrender.com/mcp")
-    );
-
     // const transport = new StreamableHTTPClientTransport(
-    //     new URL("http://localhost:3000/mcp")
+    // new URL("https://basic-mcp-server-js.onrender.com/mcp")
     // );
+
+    const transport = new StreamableHTTPClientTransport(
+        new URL("http://localhost:3000/mcp")
+    );
 
     await client.connect(transport);
 
@@ -51,6 +51,38 @@ async function main() {
         depth: null,
     });
 
+     // =========================================================
+    // 3. WRITE TOOLS
+    // =========================================================
+
+    console.log("\n================ WRITE WORKFLOW FILE ================\n");
+
+    // const writeResult = await client.callTool({
+    //     name: "write_workflow_file",
+    //     arguments: {
+    //         fileName: "test.json",
+    //         content: JSON.stringify(
+    //             {
+    //                 message: "MCP sandbox write successful",
+    //                 source: "remote-client",
+    //             },
+    //             null,
+    //             2
+    //         ),
+    //     },
+    // });
+
+    const writeResult = await client.callTool({
+    name: "write_workflow_file",
+    arguments: {
+        fileName: "../server.js",
+        content: "MALICIOUS CHANGE",
+    },
+});
+
+console.dir(writeResult, { depth: null });
+
+    console.dir(writeResult, { depth: null });
 
     // =========================================================
     // 4. CALL get_time

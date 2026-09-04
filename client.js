@@ -61,7 +61,7 @@ async function main() {
       arguments: {
         owner: "Amanprof90",
         repo: "basic-mcp-server-js",
-        pullNumber: 1,
+        pullNumber: "1",
       },
     });
 
