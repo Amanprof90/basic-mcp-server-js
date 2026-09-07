@@ -7,21 +7,39 @@ const githubToken = process.env.GITHUB_TOKEN;
 
 // Shared GitHub fetch helper — keeps the 4 GitHub tools below from
 // repeating the same fetch/header/status-code handling.
-async function githubRequest(apiPath) {
+async function githubRequest(apiPath, options = {}) {
   const response = await fetch(`https://api.github.com${apiPath}`, {
-    method: "GET",
+    method: options.method || "GET",
     headers: {
       Accept: "application/vnd.github+json",
       Authorization: `Bearer ${githubToken}`,
       "X-GitHub-Api-Version": "2026-03-10",
+      "Content-Type": "application/json",
     },
+    body: options.body ? JSON.stringify(options.body) : undefined,
   });
 
   if (!response.ok) {
-    const error = new Error(`GitHub API request failed with status ${response.status}.`);
-    error.status = response.status;
-    throw error;
-  }
+  const errorBody = await response.text();
+
+  console.error("===== GITHUB ERROR =====");
+  console.error("API:", apiPath);
+  console.error("Method:", options.method || "GET");
+  console.error("Status:", response.status);
+  console.error("Body:", errorBody);
+  console.error(
+    "Permissions:",
+    response.headers.get("x-accepted-github-permissions")
+  );
+  console.error("========================");
+
+  const error = new Error(
+    `GitHub API request failed with status ${response.status}.`
+  );
+
+  error.status = response.status;
+  throw error;
+}
 
   return response.json();
 }
@@ -33,6 +51,36 @@ function mapGithubError(error, notFoundMessage) {
   if (error.status) return `GitHub API request failed with status ${error.status}.`;
   return "Unable to connect to GitHub.";
 }
+
+const notionToken = process.env.NOTION_TOKEN;
+
+async function notionRequest(apiPath, options = {}) {
+  const response = await fetch(`https://api.notion.com${apiPath}`, {
+    method: options.method || "GET",
+    headers: {
+      Authorization: `Bearer ${notionToken}`,
+      "Notion-Version": "2026-03-11",
+      "Content-Type": "application/json",
+    },
+    body: options.body
+      ? JSON.stringify(options.body)
+      : undefined,
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+
+    const error = new Error(
+      `Notion API request failed with status ${response.status}: ${errorBody}`
+    );
+
+    error.status = response.status;
+    throw error;
+  }
+
+  return response.json();
+}
+
 
 function registerCapabilities(server) {
   // =========================================================
@@ -133,6 +181,199 @@ function registerCapabilities(server) {
     }
   );
 
+
+  //----------------------------------------------
+  // NOTION INTEGRATION CAPABILITIES
+  //----------------------------------------------
+    //SERCH TOOL
+  server.registerTool(
+  "search_notion",
+  {
+    title: "Search Notion",
+    description: "Searches Notion pages shared with this MCP connection.",
+    inputSchema: {
+      query: z.string().min(1).describe("Text to search for in Notion."),
+    },
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
+  },
+  async ({ query }) => {
+    try {
+      const result = await notionRequest("/v1/search", {
+        method: "POST",
+        body: {
+          query,
+          filter: {
+            property: "object",
+            value: "page",
+          },
+        },
+      });
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(
+              result.results.map((page) => ({
+                id: page.id,
+                url: page.url,
+                title:
+                  page.properties?.title?.title?.[0]?.plain_text ||
+                  page.properties?.Name?.title?.[0]?.plain_text ||
+                  "Untitled",
+              })),
+              null,
+              2
+            ),
+          },
+        ],
+      };
+    } catch (error) {
+      console.error("Notion search error:", error);
+
+      return {
+        isError: true,
+        content: [
+          {
+            type: "text",
+            text: `Unable to search Notion: ${error.message}`,
+          },
+        ],
+      };
+    }
+  }
+);
+
+//gET TOOL
+server.registerTool(
+  "get_notion_page",
+  {
+    title: "Get Notion Page",
+    description: "Retrieves a Notion page by its ID.",
+    inputSchema: {
+      pageId: z.string().min(1).describe("Notion page ID."),
+    },
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
+  },
+  async ({ pageId }) => {
+    try {
+      const page = await notionRequest(
+        `/v1/pages/${encodeURIComponent(pageId)}`
+      );
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(page, null, 2),
+          },
+        ],
+      };
+    } catch (error) {
+      console.error("Notion get page error:", error);
+
+      return {
+        isError: true,
+        content: [
+          {
+            type: "text",
+            text: `Unable to retrieve Notion page: ${error.message}`,
+          },
+        ],
+      };
+    }
+  }
+);
+//APPEND TOOL
+
+server.registerTool(
+  "append_notion_content",
+  {
+    title: "Append Notion Content",
+    description: "Appends a paragraph to a Notion page.",
+    inputSchema: {
+      pageId: z.string().min(1).describe("Notion page ID."),
+      text: z.string().min(1).describe("Text to append."),
+    },
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: true,
+    },
+  },
+  async ({ pageId, text }) => {
+    try {
+      const result = await notionRequest(
+        `/v1/blocks/${encodeURIComponent(pageId)}/children`,
+        {
+          method: "PATCH",
+          body: {
+            children: [
+              {
+                object: "block",
+                type: "paragraph",
+                paragraph: {
+                  rich_text: [
+                    {
+                      type: "text",
+                      text: {
+                        content: text,
+                      },
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        }
+      );
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(
+              {
+                success: true,
+                appendedText: text,
+                blocksCreated: result.results?.length ?? 0,
+              },
+              null,
+              2
+            ),
+          },
+        ],
+      };
+    } catch (error) {
+      console.error("Notion append error:", error);
+
+      return {
+        isError: true,
+        content: [
+          {
+            type: "text",
+            text: `Unable to append Notion content: ${error.message}`,
+          },
+        ],
+      };
+    }
+  }
+);
+
+//
+
+
   // update_server_config
   server.registerTool(
     "update_server_config",
@@ -214,11 +455,9 @@ function registerCapabilities(server) {
 
     async ({ fileName, content }) => {
       try {
-        const workflowDir = path.resolve(
-          __dirname,
-          "data",
-          "workflow"
-        );
+        const workflowDir = process.env.MCP_WORKFLOW_DIR
+          ? path.resolve(process.env.MCP_WORKFLOW_DIR)
+          : path.resolve(__dirname, "data", "workflow");
 
         const requestedPath = path.resolve(
           workflowDir,
@@ -430,6 +669,149 @@ function registerCapabilities(server) {
       }
     }
   );
+
+  // update_issue
+server.registerTool(
+  "update_issue",
+  {
+    title: "Update GitHub Issue",
+    description: "Updates the state and/or labels of a GitHub issue.",
+
+    inputSchema: {
+      owner: z
+        .string()
+        .min(1)
+        .describe("GitHub repository owner."),
+
+      repo: z
+        .string()
+        .min(1)
+        .describe("GitHub repository name."),
+
+      issueNumber: z
+        .number()
+        .int()
+        .positive()
+        .describe("GitHub issue number."),
+
+      state: z
+        .enum(["open", "closed"])
+        .optional()
+        .describe("New issue state."),
+
+      labels: z
+        .array(z.string().min(1))
+        .optional()
+        .describe(
+          "Complete replacement list of issue labels."
+        ),
+    },
+
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
+  },
+
+  async ({ owner, repo, issueNumber, state, labels }) => {
+    try {
+      // -----------------------------------------
+      // 1. Validate that something is being changed
+      // -----------------------------------------
+
+      if (state === undefined && labels === undefined) {
+        return {
+          isError: true,
+          content: [
+            {
+              type: "text",
+              text:
+                "At least one update field is required: state or labels.",
+            },
+          ],
+        };
+      }
+
+      // -----------------------------------------
+      // 2. Build GitHub PATCH request body
+      // -----------------------------------------
+
+      const body = {};
+
+      if (state !== undefined) {
+        body.state = state;
+      }
+
+      if (labels !== undefined) {
+        body.labels = labels;
+      }
+
+      // -----------------------------------------
+      // 3. Update GitHub issue
+      // -----------------------------------------
+
+      const updatedIssue = await githubRequest(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+          repo
+        )}/issues/${issueNumber}`,
+        {
+          method: "PATCH",
+          body,
+        }
+      );
+
+      // -----------------------------------------
+      // 4. Return only useful information
+      // -----------------------------------------
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(
+              {
+                number: updatedIssue.number,
+                title: updatedIssue.title,
+                state: updatedIssue.state,
+                labels:
+                  updatedIssue.labels?.map(
+                    (label) => label.name
+                  ) ?? [],
+                updatedAt: updatedIssue.updated_at,
+                url: updatedIssue.html_url,
+              },
+              null,
+              2
+            ),
+          },
+        ],
+      };
+    } catch (error) {
+      console.error(
+        "GitHub issue update error:",
+        error
+      );
+
+      const message = mapGithubError(
+        error,
+        `Issue #${issueNumber} was not found in ${owner}/${repo}.`
+      );
+
+      return {
+        isError: true,
+        content: [
+          {
+            type: "text",
+            text: `Unable to update GitHub issue: ${message}`,
+          },
+        ],
+      };
+    }
+  }
+);
+
 
   // get_pull_request
   server.registerTool(

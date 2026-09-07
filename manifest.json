@@ -15,7 +15,9 @@
       "args": [
         "${__dirname}/server.js"
       ],
-      "env": {}
+      "env": {
+      "MCP_WORKFLOW_DIR": "D:\\TASK MASTERY\\Build&Learn\\MCP\\basic-mcp\\data\\workflow"
+    }
     }
   },
   "tools": [
